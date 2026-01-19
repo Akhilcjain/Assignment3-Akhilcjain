@@ -10,33 +10,27 @@ on:
 jobs:
   unit-test:
     runs-on: self-hosted
-    container:
-      image: cuaesd/aesd-autotest:24-unit-test
-      options: --platform linux/amd64 --entrypoint /bin/bash
     steps:
-      - name: Install Node.js
-        run: |
-          curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
-          apt-get install -y nodejs
       - uses: actions/checkout@v4
       - name: Checkout submodules
         run: git submodule update --init --recursive
-      - name: Run unit test
-        run: ./unit-test.sh
+      - name: Run unit test in container
+        run: |
+          docker run --rm --platform linux/amd64 \
+            -v $PWD:/workspace -w /workspace \
+            cuaesd/aesd-autotest:24-unit-test \
+            ./unit-test.sh
 
   full-test:
     runs-on: self-hosted
-    container:
-      image: cuaesd/aesd-autotest:24-assignment1
-      options: --platform linux/amd64 --entrypoint /bin/bash
     steps:
-      - name: Install Node.js
-        run: |
-          curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
-          apt-get install -y nodejs
       - uses: actions/checkout@v4
       - name: Checkout submodules
         run: git submodule update --init --recursive
-      - name: Run full test
-        run: ./full-test.sh
+      - name: Run full test in container
+        run: |
+          docker run --rm --platform linux/amd64 \
+            -v $PWD:/workspace -w /workspace \
+            cuaesd/aesd-autotest:24-assignment1 \
+            ./full-test.sh
 
