@@ -9,12 +9,6 @@ jobs:
     unit-test:
         container: cuaesd/aesd-autotest:24-unit-test
         runs-on: self-hosted
-        env:
-          http_proxy: http://wsl-proxy:3129
-          https_proxy: http://wsl-proxy:3129
-          HTTP_PROXY: http://wsl-proxy:3129
-          HTTPS_PROXY: http://wsl-proxy:3129
-
         steps:
           - uses: actions/checkout@v2
           - name: Checkout submodules
@@ -24,11 +18,6 @@ jobs:
     full-test:
         container: cuaesd/aesd-autotest:24-assignment1
         runs-on: self-hosted
-        env:
-          http_proxy: http://wsl-proxy:3129
-          https_proxy: http://wsl-proxy:3129
-          HTTP_PROXY: http://wsl-proxy:3129
-          HTTPS_PROXY: http://wsl-proxy:3129
         steps:
           - uses: actions/checkout@v2
           - name: Checkout submodules
