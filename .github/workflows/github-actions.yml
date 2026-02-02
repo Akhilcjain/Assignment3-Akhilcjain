@@ -7,7 +7,7 @@ on:
 
 jobs:
   unit-test:
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     container: cuaesd/aesd-autotest:24-unit-test
 
     steps:
