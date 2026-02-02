@@ -3,11 +3,6 @@ jobs:
     runs-on: self-hosted
     container:
       image: cuaesd/aesd-autotest:24-unit-test
-      env:
-        http_proxy: ""
-        https_proxy: ""
-        HTTP_PROXY: ""
-        HTTPS_PROXY: ""
     steps:
       - uses: actions/checkout@v2
       - name: Checkout submodules
