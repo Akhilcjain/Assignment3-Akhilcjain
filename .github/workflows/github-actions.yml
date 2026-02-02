@@ -1,21 +1,16 @@
-name: assignment-test
-
-on:
-  push:
-    branches:
-      - "*"
-
 jobs:
   unit-test:
-    runs-on: ubuntu-latest
-    container: cuaesd/aesd-autotest:24-unit-test
-
+    runs-on: self-hosted
+    container:
+      image: cuaesd/aesd-autotest:24-unit-test
+      env:
+        http_proxy: ""
+        https_proxy: ""
+        HTTP_PROXY: ""
+        HTTPS_PROXY: ""
     steps:
-      - uses: actions/checkout@v4
-
+      - uses: actions/checkout@v2
       - name: Checkout submodules
         run: git submodule update --init --recursive
-
       - name: Run unit test
         run: ./unit-test.sh
-
