@@ -18,7 +18,7 @@ jobs:
 
       - name: Run unit test
         run: ./unit-test.sh
-<<<<<<< HEAD
+
 
 
     unit-test:
@@ -30,15 +30,3 @@ jobs:
             run : git submodule update --init --recursive
           - name: Run unit test
             run: ./unit-test.sh
-    full-test:
-        container: cuaesd/aesd-autotest:24-assignment3
-        runs-on: self-hosted
-        steps:
-          - uses: actions/checkout@v2
-          - name: Checkout submodules
-            run : git submodule update --init --recursive
-          - name: Run full test
-            run: ./full-test.sh
-
-=======
->>>>>>> 9413bb5c822398a442e60c3e6a4e5b260e1cd1f8
