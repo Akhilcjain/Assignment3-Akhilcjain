@@ -113,7 +113,7 @@ int main(int argc, char* argv[])
     				if (pid > 0) 
 				{
         				// Parent exits immediately
-        				printf("Daemon parent exiting\n");
+        				//printf("Daemon parent exiting\n");
        					return 0;
     				}
     				// Child continues as daemon
@@ -139,7 +139,7 @@ int main(int argc, char* argv[])
 						printf("recv error: %s\n", strerror(errno));
 						return -1;
 					}
-					printf("Connection accepted\n");
+					//printf("Connection accepted\n");
 					// Time to receive packets
 					
 					char temp[1024];
@@ -156,7 +156,7 @@ int main(int argc, char* argv[])
 							printf("Connection broken\n");
 							break;
 						}
-						printf("%d bytes received\n",received);	
+						//printf("%d bytes received\n",received);	
 						// Data packet complete
                 	              		if(received < 0)
 						{
@@ -182,7 +182,7 @@ int main(int argc, char* argv[])
 							//printf("Total Bytes %d\n",totalsize);
 							if(Data == NULL)
 							{
-								printf("Data is NULL\n");
+							//	printf("Data is NULL\n");
 								handle_signal(0);
 								// Malloc Error
 								exit_requested = 1;
@@ -223,5 +223,4 @@ int main(int argc, char* argv[])
 	}
 	cleanup();
 	return 0;
-	//handle_signal(0);
 }
