@@ -1,28 +1,32 @@
 name: assignment-test
 on:
-    push:
-        tags-ignore:
-            - '*'
-        branches:
-            - '*'
+  push:
+    tags-ignore:
+      - '*'
+    branches:
+      - '*'
 
 jobs:
-    unit-test:
-        runs-on: ubuntu-latest
-        container: cuaesd/aesd-autotest:24-unit-test
-        steps:
-          - uses: actions/checkout@v2
-          - name: Checkout submodules
-            run: git submodule update --init --recursive
-          - name: Run unit test
-            run: ./unit-test.sh
+  unit-test:
+    runs-on: ubuntu-latest
+    container: cuaesd/aesd-autotest:24-unit-test
+    steps:
+      - uses: actions/checkout@v2
+      - name: Checkout submodules
+        run: git submodule update --init --recursive
+      - name: Install netcat
+        run: sudo apt-get update && sudo apt-get install -y netcat
+      - name: Run unit test
+        run: ./unit-test.sh
 
-    full-test:
-        runs-on: ubuntu-latest
-        container: cuaesd/aesd-autotest:24-assignment4
-        steps:
-          - uses: actions/checkout@v2
-          - name: Checkout submodules
-            run: git submodule update --init --recursive
-          - name: Run full test
-            run: ./full-test.sh
+  full-test:
+    runs-on: ubuntu-latest
+    container: cuaesd/aesd-autotest:24-assignment4
+    steps:
+      - uses: actions/checkout@v2
+      - name: Checkout submodules
+        run: git submodule update --init --recursive
+      - name: Install netcat
+        run: sudo apt-get update && sudo apt-get install -y netcat
+      - name: Run full test
+        run: ./full-test.sh
