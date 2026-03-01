@@ -10,16 +10,16 @@ fi
 case $1 in
 	"start")
 		echo "Start command received"
-		if [ -f "aesdsocket" ]; then
-			./aesdsocket -d
-		else
-			exit 1
-		fi
+	#	if [ -f "/usr/bin/aesdsocket" ]; then
+		start-stop-daemon -S -n aesdsocket -a /usr/bin/aesdsocket -- -d
+	#	else
+		exit 0
+	#	fi
 
 		;;
 	"stop")
 		echo "stop command received"
-		pkill -f "aesdsocket"
+		start-stop-daemon -K -n "aesdsocket"
 		;;
 	*)
 		echo "Command not recognized"

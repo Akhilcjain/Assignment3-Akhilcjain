@@ -74,7 +74,7 @@ int main(int argc, char* argv[])
 	int rundeamon = 0;
 	if (argc > 1 && strcmp(argv[1], "-d") == 0)
 	{
-		//printf("Running in deamon mode\n");
+		printf("Running in deamon mode\n");
     		rundeamon = 1;
 	}
 
@@ -113,7 +113,7 @@ int main(int argc, char* argv[])
     				if (pid > 0) 
 				{
         				// Parent exits immediately
-        				//printf("Daemon parent exiting\n");
+        				printf("Daemon parent exiting\n");
        					return 0;
     				}
     				// Child continues as daemon
