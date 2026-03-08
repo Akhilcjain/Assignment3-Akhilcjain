@@ -8,12 +8,27 @@
 #include <netdb.h>
 #include <unistd.h>
 #include <signal.h>
+#include <sys/queue.h>
+#include <pthread.h>
+#include <stdbool.h>
 
-char *Data = NULL;
+
 int socketfd, connectionfd;
 FILE *file;
 struct addrinfo *res;
 volatile sig_atomic_t exit_requested = 0;
+pthread_mutex_t file_mutex = PTHREAD_MUTEX_INITIALIZER;
+
+struct ThreadNode_st{
+	pthread_t 	ThreadId;
+	pthread_mutex_t *file_mutex;
+	int		ConnectionId;
+	bool		ThreadComplete;
+	SLIST_ENTRY(ThreadNode_st) entries;
+};
+
+// Define head type
+SLIST_HEAD(ThreadList_st, ThreadNode_st);
 
 void handle_signal(int signal)
 {
@@ -25,10 +40,6 @@ void handle_signal(int signal)
 
 void cleanup()
 {
-    if (Data) {
-        free(Data);
-        Data = NULL;
-    }
 
     if (connectionfd != -1) {
         close(connectionfd);
@@ -51,10 +62,103 @@ void cleanup()
     }
 }
 
+void* handle_connection(void * args)
+{
+
+	struct ThreadNode_st * NodeInfo = (struct ThreadNode_st *)args;
+	char *Data = NULL;
+        char temp[1024];
+        int totalsize = 0;
+        int prevsize=0;
+        int filesize = 0;
+	int connectionfd = NodeInfo->ConnectionId;
+
+        while (!exit_requested)
+     	{
+		int received = recv(connectionfd, temp, 1024, 0);
+                if(received == 0)
+                {
+                	printf("Connection broken\n");
+                        break;
+                }
+                printf("%d bytes received\n",received);       
+                                                
+                if(received < 0)
+                {
+
+                	printf("recv error: %s\n", strerror(errno));                             
+			
+			break;
+		}
+                if(received > 0)                                
+		{
+                	printf("Packet received %d\n",received);
+                        totalsize += received;
+
+                        Data = (Data == NULL)? (char *)malloc(totalsize):(char*)realloc(Data, totalsize);
+                        memcpy(&Data[prevsize],temp, received);
+                        prevsize = totalsize;
+                        if(Data[totalsize-1] == '\n')
+                        {
+				pthread_mutex_lock(NodeInfo->file_mutex);
+                        	fwrite(Data, totalsize,1, file);
+                                filesize += totalsize-1;
+                                fseek(file, 0, SEEK_SET);
+                                // Write back data
+                                char tempdata[1024];
+                                int bytesread = 1;
+
+                                 bytesread = fread(tempdata,1, sizeof(tempdata), file);
+                                 while(bytesread != 0)
+                                 {
+                                 	send(connectionfd, tempdata, bytesread,0);
+                                        bytesread = fread(tempdata, 1, sizeof(tempdata),file);
+                                 }
+                                 fseek(file, 0, SEEK_END);
+				 pthread_mutex_unlock(NodeInfo->file_mutex);
+                                 totalsize = 0;
+                                 prevsize=0;
+                         }                                
+		}  
+	}
+	printf("Thread complete\n");
+	free(Data);
+	NodeInfo->ThreadComplete = true;
+	return NULL;
+}
+
+void *TimeStampFunc(void *args)
+{
+	struct ThreadNode_st * NodeInfo = (struct ThreadNode_st *)args;
+	while(!exit_requested)
+	{
+		char time_str[100];
+		time_t now;
+		struct tm *tmp;
+		sleep(10);
+		time(&now);
+		tmp = localtime(&now);
+
+		if(strftime(time_str, sizeof(time_str),"timestamp:%a, %d %b %Y %H:%M:%S %z\n", tmp) == 0) {
+			fprintf(stderr, "strftime returned 0");
+			continue;
+		}
+		pthread_mutex_lock(NodeInfo->file_mutex);
+		fwrite(time_str, strlen(time_str),1, file);
+		pthread_mutex_unlock(NodeInfo->file_mutex);
+		//sleep(10);
+	}
+	NodeInfo->ThreadComplete = true;
+	return NULL;
+}
 int main(int argc, char* argv[])
 {
 	// address to bind to 
 	//struct sockaddr addr;
+	//Initialize list head
+	struct ThreadList_st ThreadList;
+	SLIST_INIT(&ThreadList);
+
 	struct addrinfo hints;
 	printf("Starting app\n");
 	struct sigaction sa;
@@ -71,11 +175,11 @@ int main(int argc, char* argv[])
 	socketfd = socket(PF_INET,SOCK_STREAM, 0);
 	// Open file
 	file = fopen("/var/tmp/aesdsocketdata", "w+");
-	int rundeamon = 0;
+	//int rundeamon = 0;
 	if (argc > 1 && strcmp(argv[1], "-d") == 0)
 	{
 		printf("Running in deamon mode\n");
-    		rundeamon = 1;
+    		//rundeamon = 1;
 	}
 
 	if(socketfd == -1)
@@ -102,22 +206,7 @@ int main(int argc, char* argv[])
 		}
 		else
 		{
-			if (rundeamon == 1) 
-			{
-    				int pid = fork();
-    				if (pid < 0) {
-			        perror("fork");
-        			cleanup();
-        			return -1;
-    				}
-    				if (pid > 0) 
-				{
-        				// Parent exits immediately
-        				printf("Daemon parent exiting\n");
-       					return 0;
-    				}
-    				// Child continues as daemon
-			}
+			
 
 			printf("Listening to socket\n");
 			if(0 != listen(socketfd, 5))
@@ -126,96 +215,66 @@ int main(int argc, char* argv[])
 			}
 			else
 			{
+				// Start a new thread to write timestamps
+				struct ThreadNode_st * TimeStampnode = (struct ThreadNode_st *)malloc(sizeof(struct ThreadNode_st));
+				TimeStampnode->ConnectionId = 0;
+				TimeStampnode->ThreadComplete = false;
+                                TimeStampnode->file_mutex = &file_mutex;
+				if(pthread_create(&TimeStampnode->ThreadId, NULL, TimeStampFunc, TimeStampnode))
+				{
+					printf("Error Creating TimeStampNode\n");
+
+				}
+				SLIST_INSERT_HEAD(&ThreadList, TimeStampnode, entries);
+
+				printf("timeStamp Node created\n");
 				struct sockaddr AcceptedAddr;
 				socklen_t AddrSize = sizeof(AcceptedAddr);
 				
-				while(!exit_requested)
+				while(1)
 				{
-					connectionfd = accept(socketfd, &AcceptedAddr, &AddrSize);
-					
-					if(AddrSize == 0)
+					if(!exit_requested)
 					{
-						printf("Accept command failed\n");
-						printf("recv error: %s\n", strerror(errno));
-						return -1;
+						connectionfd = accept(socketfd, &AcceptedAddr, &AddrSize);
+					
+					
+						// Spawn a thread
+						// Create a new node
+						struct ThreadNode_st * node = (struct ThreadNode_st *)malloc(sizeof(struct ThreadNode_st));
+						node->ConnectionId = connectionfd;
+						node->file_mutex = &file_mutex;
+						node->ThreadComplete = false;
+						if(0 != pthread_create(&node->ThreadId, NULL, handle_connection, node))
+						{
+							printf("Error in creating thread\n");
+						}
+						// Add node in list
+						SLIST_INSERT_HEAD(&ThreadList, node, entries);
 					}
-					//printf("Connection accepted\n");
-					// Time to receive packets
-					
-					char temp[1024];
-					int totalsize = 0;
-					int prevsize=0;
-					int filesize = 0;
-					while (!exit_requested)
+
+					struct ThreadNode_st *cursor;
+			//		struct ThreadNode_st tmp;
+					cursor = SLIST_FIRST(&ThreadList);
+					struct ThreadNode_st *next;
+
+					while(cursor != NULL)
 					{
-				
-						int received = recv(connectionfd, temp, 1024, 0);
-						if(received == 0)
-						{
-							close(connectionfd);
-							printf("Connection broken\n");
-							break;
-						}
-						//printf("%d bytes received\n",received);	
-						// Data packet complete
-                	              		if(received < 0)
-						{
-							//printf("recv error: %s\n", strerror(errno));
-							//handle_signal(0);
-							break;
-						}
-						if(received > 0)		
-						{
-							//printf("Packet received %d\n",received);
-							totalsize += received;
-				
-							if(Data == NULL)
-							{
-							//	printf("Allocating size\n");
-								Data = (char *)malloc(totalsize);
-							}
-							else
-							{
-							//	printf("Reallocatng. Prev size: %d, new size %d",prevsize, totalsize);
-								Data = (char*)realloc(Data, totalsize);
-							}
-							//printf("Total Bytes %d\n",totalsize);
-							if(Data == NULL)
-							{
-							//	printf("Data is NULL\n");
-								handle_signal(0);
-								// Malloc Error
-								exit_requested = 1;
-								break;
-							}
-							memcpy(&Data[prevsize],temp, received);
-							prevsize = totalsize;
-							if(Data[totalsize-1] == '\n')
-							{
-							//	printf("Packet complete\n");
-										// Packet complete, write to data
-								fwrite(Data, totalsize,1, file);
-								filesize += totalsize-1;
-								fseek(file, 0, SEEK_SET);
-								// Write back data
-								char tempdata[1024];
-								int bytesread = 1;
-														
-								bytesread = fread(tempdata,1, sizeof(tempdata), file);
-								while(bytesread != 0)
-								{	
-									send(connectionfd, tempdata, bytesread,0);
-									bytesread = fread(tempdata, 1, sizeof(tempdata),file);
-								}
-								fseek(file, 0, SEEK_END);
-								totalsize = 0;
-								prevsize=0;
-								free(Data);
-								Data = NULL;
-								close(connectionfd);
-								connectionfd = -1;
-							}
-						}
+    						next = SLIST_NEXT(cursor, entries);
+
+    						if(cursor->ThreadComplete)
+    						{
+        						pthread_join(cursor->ThreadId, NULL);
+        						SLIST_REMOVE(&ThreadList, cursor, ThreadNode_st, entries);
+        						free(cursor);
+    						}
+
+    						cursor = next;
+					}
+
+
+					if(exit_requested)
+					{
+						break;
 					}
 				}
 			}
