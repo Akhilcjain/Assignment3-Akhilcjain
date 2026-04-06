@@ -1,8 +1,8 @@
 # Use cross compiler if provided, otherwise use native gcc
-CC := $(CROSS_COMPILE)gcc
+CC ?= $(CROSS_COMPILE)gcc
 
 # Compiler flags
-CFLAGS := -Wall -Werror
+CFLAGS ?= -Wall -Werror -lpthread -lrt
 
 # Default target
 all: aesdsocket
